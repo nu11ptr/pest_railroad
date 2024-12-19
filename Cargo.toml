@@ -1,0 +1,9 @@
+[workspace]
+
+[package]
+name = "pest_railroad_gen"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+pest_railroad = { path = "railroad" }
