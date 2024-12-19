@@ -84,11 +84,14 @@ fn make_expr(pairs: Pairs<Rule>) -> Box<dyn Node> {
     let mut choices: Vec<_> = choices
         .into_iter()
         .map(|mut seq| {
-            // It can't be empty per expression grammar, but it could be a single node
-            if seq.len() == 1 {
-                seq.remove(0)
-            } else {
-                Box::new(Sequence::new(seq)) as Box<dyn Node>
+            match seq.len() {
+                // This can only happpen if rule starts with a choice operator
+                // TODO: Is empty the right choice here? What is the actual behavior of starting with a choice operator?
+                0 => Box::new(Empty),
+                // If we only have one element, return it directly
+                1 => seq.remove(0),
+                // Otherwise wrap in a sequence
+                _ => Box::new(Sequence::new(seq)),
             }
         })
         .collect();
