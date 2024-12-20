@@ -81,7 +81,9 @@ fn make_repeat(pairs: Pairs<Rule>, old_term: Box<dyn Node>) -> Box<dyn Node> {
     }
 }
 
-fn make_expr(pairs: Pairs<Rule>) -> Box<dyn Node> {
+fn make_expr(pairs: Pairs<Rule>) -> (Box<dyn Node>, Vec<String>) {
+    let mut unsupported_warnings = Vec::new();
+
     // Rule choices (or those without a choice operator this will be a single element)
     let mut choices: Vec<Vec<Box<dyn Node>>> = Vec::new();
     // Current choice
@@ -110,7 +112,11 @@ fn make_expr(pairs: Pairs<Rule>) -> Box<dyn Node> {
                             // No op - nothing to do
                         }
                         Rule::expression => {
-                            term = Some(make_expr(term_pair.into_inner()));
+                            let (expr, warnings) = make_expr(term_pair.into_inner());
+                            if !warnings.is_empty() {
+                                unsupported_warnings.extend(warnings);
+                            }
+                            term = Some(expr);
                         }
                         Rule::repeat_operator => {
                             // Term would only not be populated if an unsupported rule was encountered
@@ -149,11 +155,10 @@ fn make_expr(pairs: Pairs<Rule>) -> Box<dyn Node> {
                             }
                         }
                         _ => {
-                            // TODO: Replace with logging? (or perhaps store messages and return?)
-                            eprintln!(
+                            unsupported_warnings.push(format!(
                                 "### Unsupported rule in term: {:#?} ###",
                                 term_pair.as_rule()
-                            );
+                            ));
                         }
                     }
                 }
@@ -210,13 +215,15 @@ fn make_expr(pairs: Pairs<Rule>) -> Box<dyn Node> {
 
     // If we only have one choice, return it directly
     if choices.len() == 1 {
-        choices.remove(0)
+        (choices.remove(0), unsupported_warnings)
     } else {
-        Box::new(Choice::new(choices))
+        (Box::new(Choice::new(choices)), unsupported_warnings)
     }
 }
 
-fn make_rule(identifier: &str, pairs: Pairs<Rule>) -> Box<dyn Node> {
+fn make_rule(identifier: &str, pairs: Pairs<Rule>) -> (Box<dyn Node>, Vec<String>) {
+    let mut unsupported_warnings = Vec::new();
+
     // Identifier stacked on top of a sequence
     let mut grid: Vec<Box<dyn Node>> = Vec::with_capacity(2);
     // Our rule sequence
@@ -247,7 +254,12 @@ fn make_rule(identifier: &str, pairs: Pairs<Rule>) -> Box<dyn Node> {
                 seq.push(Box::new(SimpleStart));
             }
             Rule::expression => {
-                seq.push(make_expr(pair.into_inner()));
+                let (expr, warnings) = make_expr(pair.into_inner());
+                if !warnings.is_empty() {
+                    unsupported_warnings.extend(warnings);
+                }
+
+                seq.push(expr);
             }
             Rule::closing_brace => {
                 seq.push(Box::new(SimpleEnd));
@@ -257,12 +269,14 @@ fn make_rule(identifier: &str, pairs: Pairs<Rule>) -> Box<dyn Node> {
     }
 
     grid.push(Box::new(Sequence::new(seq)));
-    Box::new(VerticalGrid::new(grid))
+    (Box::new(VerticalGrid::new(grid)), unsupported_warnings)
 }
 
 pub fn generate_diagram(
     input: &str,
-) -> Result<Diagram<VerticalGrid<Box<dyn Node>>>, pest::error::Error<Rule>> {
+) -> Result<(Diagram<VerticalGrid<Box<dyn Node>>>, Vec<String>), pest::error::Error<Rule>> {
+    let mut unsupported_warnings = Vec::new();
+
     let pairs = PestParser::parse(Rule::grammar_rules, input)?;
 
     let mut nodes: Vec<Box<dyn Node>> = Vec::with_capacity(pairs.len());
@@ -282,7 +296,11 @@ pub fn generate_diagram(
                         nodes.push(Box::new(Comment::new(first_pair.as_str().into())));
                     }
                     Rule::identifier => {
-                        nodes.push(make_rule(first_pair.as_str(), rule_pairs));
+                        let (rule, warnings) = make_rule(first_pair.as_str(), rule_pairs);
+                        if !warnings.is_empty() {
+                            unsupported_warnings.extend(warnings);
+                        }
+                        nodes.push(rule);
                     }
                     rule => unreachable!("Unexpected first rule in grammar rule: {rule:?}"),
                 }
@@ -299,5 +317,5 @@ pub fn generate_diagram(
 
     let root = VerticalGrid::new(nodes);
     let diagram = Diagram::with_default_css(root);
-    Ok(diagram)
+    Ok((diagram, unsupported_warnings))
 }
