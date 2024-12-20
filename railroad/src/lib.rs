@@ -56,10 +56,13 @@ fn make_repeat(pairs: Pairs<Rule>, old_term: Box<dyn Node>) -> Box<dyn Node> {
             // Figure out whether repeat should show that node must be traversed or not
             let repeat = if min > 0 {
                 // One or more times
-                Repeat::new(old_term, Box::new(Empty) as Box<dyn Node>)
+                Box::new(Repeat::new(old_term, Box::new(Empty) as Box<dyn Node>)) as Box<dyn Node>
             } else {
                 // Zero or more times
-                Repeat::new(Box::new(Empty) as Box<dyn Node>, old_term)
+                Box::new(Choice::new(vec![
+                    Box::new(Empty) as Box<dyn Node>,
+                    Box::new(Repeat::new(old_term, Empty)),
+                ]))
             };
 
             let label = if min == max {
@@ -112,7 +115,11 @@ fn make_expr(pairs: Pairs<Rule>) -> Box<dyn Node> {
                         Rule::repeat_operator => {
                             // Term would only not be populated if an unsupported rule was encountered
                             if let Some(old_term) = term {
-                                term = Some(Box::new(Repeat::new(Empty, old_term)));
+                                // TODO: Is there a better way to render this?
+                                term = Some(Box::new(Choice::new(vec![
+                                    Box::new(Empty) as Box<dyn Node>,
+                                    Box::new(Repeat::new(old_term, Empty)),
+                                ])));
                             }
                         }
                         Rule::repeat_once_operator => {
