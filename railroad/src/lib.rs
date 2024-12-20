@@ -40,16 +40,22 @@ fn make_expr(pairs: Pairs<Rule>) -> Box<dyn Node> {
                             term = Some(make_expr(term_pair.into_inner()));
                         }
                         Rule::repeat_operator => {
-                            // Panic safety: Grammar ensures this must be populated by this point
-                            term = Some(Box::new(Repeat::new(Empty, term.expect("term"))));
+                            // Term would only not be populated if an unsupported rule was encountered
+                            if let Some(old_term) = term {
+                                term = Some(Box::new(Repeat::new(Empty, old_term)));
+                            }
                         }
                         Rule::repeat_once_operator => {
-                            // Panic safety: Grammar ensures this must be populated by this point
-                            term = Some(Box::new(Repeat::new(term.expect("term"), Empty)));
+                            // Term would only not be populated if an unsupported rule was encountered
+                            if let Some(old_term) = term {
+                                term = Some(Box::new(Repeat::new(old_term, Empty)));
+                            }
                         }
                         Rule::optional_operator => {
-                            // Panic safety: Grammar ensures this must be populated by this point
-                            term = Some(Box::new(Optional::new(term.expect("term"))));
+                            // Term would only not be populated if an unsupported rule was encountered
+                            if let Some(old_term) = term {
+                                term = Some(Box::new(Optional::new(old_term)));
+                            }
                         }
                         _ => {
                             // TODO: Replace with logging? (or perhaps store messages and return?)
@@ -61,8 +67,10 @@ fn make_expr(pairs: Pairs<Rule>) -> Box<dyn Node> {
                     }
                 }
 
-                // Panic safety: Grammar ensures this must be populated by this point
-                curr_choice.push(term.expect("store term"));
+                // Term would only not be populated if an unsupported rule was encountered
+                if let Some(term) = term {
+                    curr_choice.push(term);
+                }
             }
             Rule::sequence_operator => {
                 // No op - nothing to do
