@@ -97,7 +97,7 @@ fn make_expr(pairs: Pairs<Rule>) -> Box<dyn Node> {
                         Rule::identifier => {
                             term = Some(Box::new(NonTerminal::new(term_pair.as_str().into())));
                         }
-                        Rule::string => {
+                        Rule::string | Rule::range => {
                             term = Some(Box::new(Terminal::new(term_pair.as_str().into())));
                         }
                         Rule::opening_paren | Rule::closing_paren => {
