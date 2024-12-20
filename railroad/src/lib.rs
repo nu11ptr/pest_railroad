@@ -89,8 +89,10 @@ fn make_expr(pairs: Pairs<Rule>) -> Box<dyn Node> {
             Rule::term => {
                 let term_pairs = pair.into_inner();
 
-                // We might have a postfix operator, so store the term until we are sure
+                // We might have a prefix and/or postfix operator, so store the term until we are sure
                 let mut term: Option<Box<dyn Node>> = None;
+                let mut _positive_prefix = false;
+                let mut negative_prefix = false;
 
                 for term_pair in term_pairs {
                     match term_pair.as_rule() {
@@ -124,6 +126,13 @@ fn make_expr(pairs: Pairs<Rule>) -> Box<dyn Node> {
                                 term = Some(Box::new(Optional::new(old_term)));
                             }
                         }
+                        // TODO: I'm not sure I understand what this does
+                        Rule::positive_predicate_operator => {
+                            _positive_prefix = true;
+                        }
+                        Rule::negative_predicate_operator => {
+                            negative_prefix = true;
+                        }
                         Rule::repeat_exact
                         | Rule::repeat_min
                         | Rule::repeat_max
@@ -144,7 +153,10 @@ fn make_expr(pairs: Pairs<Rule>) -> Box<dyn Node> {
                 }
 
                 // Term would only not be populated if an unsupported rule was encountered
-                if let Some(term) = term {
+                if let Some(mut term) = term {
+                    if negative_prefix {
+                        term = Box::new(LabeledBox::new(term, Comment::new("Don't match".into())));
+                    }
                     curr_choice.push(term);
                 }
             }
