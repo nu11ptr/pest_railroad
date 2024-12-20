@@ -129,6 +129,12 @@ fn make_expr(pairs: Pairs<Rule>) -> Box<dyn Node> {
                         // TODO: I'm not sure I understand what this does
                         Rule::positive_predicate_operator => {
                             _positive_prefix = true;
+
+                            // TODO: Replace with logging? (or perhaps store messages and return?)
+                            eprintln!(
+                                "### Unsupported rule in term: {:#?} ###",
+                                term_pair.as_rule()
+                            );
                         }
                         Rule::negative_predicate_operator => {
                             negative_prefix = true;
