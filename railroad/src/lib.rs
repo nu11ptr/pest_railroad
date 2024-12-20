@@ -94,8 +94,8 @@ fn make_expr(pairs: Pairs<Rule>) -> Box<dyn Node> {
 
                 // We might have a prefix and/or postfix operator, so store the term until we are sure
                 let mut term: Option<Box<dyn Node>> = None;
-                let mut _positive_prefix = false;
-                let mut negative_prefix = false;
+                let mut positive_lookahead = 0;
+                let mut negative_lookahead = 0;
 
                 for term_pair in term_pairs {
                     match term_pair.as_rule() {
@@ -115,7 +115,6 @@ fn make_expr(pairs: Pairs<Rule>) -> Box<dyn Node> {
                         Rule::repeat_operator => {
                             // Term would only not be populated if an unsupported rule was encountered
                             if let Some(old_term) = term {
-                                // TODO: Is there a better way to render this?
                                 term = Some(Box::new(Choice::new(vec![
                                     Box::new(Empty) as Box<dyn Node>,
                                     Box::new(Repeat::new(old_term, Empty)),
@@ -134,18 +133,11 @@ fn make_expr(pairs: Pairs<Rule>) -> Box<dyn Node> {
                                 term = Some(Box::new(Optional::new(old_term)));
                             }
                         }
-                        // TODO: I'm not sure I understand what this does
                         Rule::positive_predicate_operator => {
-                            _positive_prefix = true;
-
-                            // TODO: Replace with logging? (or perhaps store messages and return?)
-                            eprintln!(
-                                "### Unsupported rule in term: {:#?} ###",
-                                term_pair.as_rule()
-                            );
+                            positive_lookahead += 1;
                         }
                         Rule::negative_predicate_operator => {
-                            negative_prefix = true;
+                            negative_lookahead += 1;
                         }
                         Rule::repeat_exact
                         | Rule::repeat_min
@@ -168,8 +160,18 @@ fn make_expr(pairs: Pairs<Rule>) -> Box<dyn Node> {
 
                 // Term would only not be populated if an unsupported rule was encountered
                 if let Some(mut term) = term {
-                    if negative_prefix {
-                        term = Box::new(LabeledBox::new(term, Comment::new("Don't match".into())));
+                    // TODO: I don't really understand what multiple lookaheads would mean
+                    // (the stress test has double negative predicates. I am assume they cancel each other out?)
+                    if negative_lookahead > 0 && negative_lookahead % 2 != 0 {
+                        term = Box::new(LabeledBox::new(
+                            term,
+                            Comment::new("Lookahead: Can't match".into()),
+                        ));
+                    } else if positive_lookahead > 0 && positive_lookahead % 2 != 0 {
+                        term = Box::new(LabeledBox::new(
+                            term,
+                            Comment::new("Lookahead: Must match".into()),
+                        ));
                     }
                     curr_choice.push(term);
                 }
