@@ -3,13 +3,80 @@ use std::mem;
 use pest::{iterators::Pairs, Parser};
 use pest_derive::Parser;
 use railroad::{
-    Choice, Comment, Diagram, Empty, Node, NonTerminal, Optional, Repeat, Sequence, SimpleEnd,
-    SimpleStart, Terminal, VerticalGrid,
+    Choice, Comment, Diagram, Empty, LabeledBox, Node, NonTerminal, Optional, Repeat, Sequence,
+    SimpleEnd, SimpleStart, Terminal, VerticalGrid,
 };
 
 #[derive(Parser)]
 #[grammar = "grammar.pest"]
 struct PestParser;
+
+fn make_repeat(pairs: Pairs<Rule>, old_term: Box<dyn Node>) -> Box<dyn Node> {
+    let mut comma_seen = false;
+    let mut min_repeat = None;
+    let mut max_repeat = None;
+
+    for repeat in pairs {
+        match repeat.as_rule() {
+            Rule::opening_brace => {
+                // No op - nothing to do
+            }
+            Rule::closing_brace if !comma_seen => {
+                // repeat_exact - max same as min
+                max_repeat = min_repeat;
+            }
+            Rule::closing_brace if comma_seen => {
+                // repeat_max - min is 0
+                if min_repeat.is_none() {
+                    min_repeat = Some(0);
+                }
+                // repeat_min - max is u32::MAX
+                if max_repeat.is_none() {
+                    max_repeat = Some(u32::MAX);
+                }
+            }
+            Rule::number => {
+                if comma_seen {
+                    // Panic safety: Guaranteed to be numbers from grammar
+                    max_repeat = Some(repeat.as_str().parse().expect("number"));
+                } else {
+                    // Panic safety: Guaranteed to be numbers from grammar
+                    min_repeat = Some(repeat.as_str().parse().expect("number"));
+                }
+            }
+            Rule::comma => {
+                comma_seen = true;
+            }
+            rule => unreachable!("Unexpected rule in repeat: {rule:?}"),
+        }
+    }
+
+    match (min_repeat, max_repeat) {
+        (Some(min), Some(max)) => {
+            // Figure out whether repeat should show that node must be traversed or not
+            let repeat = if min > 0 {
+                // One or more times
+                Repeat::new(old_term, Box::new(Empty) as Box<dyn Node>)
+            } else {
+                // Zero or more times
+                Repeat::new(Box::new(Empty) as Box<dyn Node>, old_term)
+            };
+
+            let label = if min == max {
+                format!("Repeat {min} time(s)")
+            } else if max == u32::MAX {
+                format!("Repeat {min} or more times")
+            } else if min == 0 {
+                format!("Repeat at most {max} time(s)")
+            } else {
+                format!("Repeat between {min} and {max} time(s)")
+            };
+
+            Box::new(LabeledBox::new(repeat, Comment::new(label)))
+        }
+        _ => unreachable!("Min and max not set"),
+    }
+}
 
 fn make_expr(pairs: Pairs<Rule>) -> Box<dyn Node> {
     // Rule choices (or those without a choice operator this will be a single element)
@@ -55,6 +122,15 @@ fn make_expr(pairs: Pairs<Rule>) -> Box<dyn Node> {
                             // Term would only not be populated if an unsupported rule was encountered
                             if let Some(old_term) = term {
                                 term = Some(Box::new(Optional::new(old_term)));
+                            }
+                        }
+                        Rule::repeat_exact
+                        | Rule::repeat_min
+                        | Rule::repeat_max
+                        | Rule::repeat_min_max => {
+                            // Term would only not be populated if an unsupported rule was encountered
+                            if let Some(old_term) = term {
+                                term = Some(make_repeat(term_pair.into_inner(), old_term));
                             }
                         }
                         _ => {
