@@ -14,4 +14,4 @@ readme = "README.md"
 edition = "2021"
 
 [dependencies]
-pest_railroad = { path = "railroad" }
+pest_railroad = { path = "railroad", version = "0.1.0" }
