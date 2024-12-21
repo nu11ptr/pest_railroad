@@ -272,6 +272,7 @@ fn make_rule(identifier: &str, pairs: Pairs<Rule>) -> (Box<dyn Node>, Vec<String
     (Box::new(VerticalGrid::new(grid)), unsupported_warnings)
 }
 
+/// Creates a railroad (aka syntax) diagram from the grammar contained in the input string. It also returns a list of unsupported warnings for the pest rules that aren't supported.
 pub fn generate_diagram(
     input: &str,
 ) -> Result<(Diagram<VerticalGrid<Box<dyn Node>>>, Vec<String>), pest::error::Error<Rule>> {

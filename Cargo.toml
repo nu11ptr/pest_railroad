@@ -3,6 +3,14 @@
 [package]
 name = "pest_railroad_gen"
 version = "0.1.0"
+authors = ["Scott Meeuwsen <smeeuwsen@gmail.com>"]
+license = "MIT OR Apache-2.0"
+description = "Railroad (aka syntax) SVG diagram generator for Pest parsers. It supports most (but not all) Pest grammar rules."
+repository = "https://github.com/nu11ptr/pest_railroad"
+documentation = "https://docs.rs/pest_railroad_gen"
+keywords = ["syntax", "diagram", "parser", "peg", "pest"]
+categories = ["parsing"]
+readme = "README.md"
 edition = "2021"
 
 [dependencies]
